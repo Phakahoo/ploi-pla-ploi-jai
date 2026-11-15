@@ -94,6 +94,7 @@ textarea{width:100%;padding:1rem;font:inherit;color:var(--ink);background:rgba(2
 .relWrap.swim .target{animation:ripple 2.8s ease-out}
 @keyframes ripple{50%{box-shadow:0 0 0 30px rgba(242,232,165,.3),0 0 0 70px rgba(184,221,209,.2)}}
 .static .acc{pointer-events:none}
+.note.err{color:#9c3a5a}
 @media (max-width:720px){
   .decoGrid{grid-template-columns:1fr}
   .relWrap{grid-template-columns:1fr;min-height:0}

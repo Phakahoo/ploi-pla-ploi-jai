@@ -107,6 +107,7 @@
       <div id="relFish" class="relFish" aria-label="Drag the fish to the river"></div>
     </div>
     <p class="note" data-i18n="dragHint"></p>
+    <p id="relStatus" class="note" role="status" aria-live="polite" hidden></p>
     <button class="btn primary" data-act="release" id="relBtn" data-i18n="releaseBtn"></button>
   </section>
 
@@ -117,6 +118,9 @@
     <button class="btn primary" data-act="restart" data-i18n="restart"></button>
   </section>
 </main>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

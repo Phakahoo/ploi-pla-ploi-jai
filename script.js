@@ -64,6 +64,7 @@ const T = {
     m_success: 'ความกล้าที่จะก้าวข้ามอุปสรรคเพิ่มขึ้นอีกนิด ✨', m_finance: 'ความมั่งคั่งที่คุณปรารถนากำลังได้รับการเติมเต็มอีกนิด ✨',
     m_love: 'ความอบอุ่นและความสุขเพิ่มขึ้นอีกนิด ✨', m_all: 'ประกายเล็ก ๆ ช่วยเติมพลังให้ทุกด้าน ✨',
     limitMsg: 'เลือกของตกแต่งได้สูงสุด 2 ชิ้นแล้ว ✨',
+    saving: 'กำลังบันทึกปลาของคุณ…', saveFail: 'บันทึกปลาไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วกดปล่อยอีกครั้ง', fbNotReady: 'ระบบบันทึกยังไม่พร้อมใช้งาน ปลายังไม่ได้ถูกปล่อย กรุณาแจ้งทีมงาน',
     reflectTitle: 'มีอะไรที่คุณอยากปล่อยไปกับสายน้ำไหม?',
     reflectSub: 'บางเรื่องไม่จำเป็นต้องหาคำตอบในวันนี้\nลองเขียนสิ่งที่อยู่ในใจ แล้วปล่อยให้มันค่อย ๆ ไหลไป',
     reflectPh: 'เขียนสิ่งที่อยู่ในใจตรงนี้…', skip: 'ข้ามขั้นตอนนี้',
@@ -89,6 +90,7 @@ const T = {
     m_success: 'Your courage to overcome obstacles grows a little ✨', m_finance: 'The abundance you wish for is being filled a little more ✨',
     m_love: 'Warmth and happiness grow a little ✨', m_all: 'A little sparkle lifts every wish ✨',
     limitMsg: 'You can choose up to 2 accessories only ✨',
+    saving: 'Saving your fish…', saveFail: 'Could not save your fish. Please check your connection and press release again.', fbNotReady: 'The saving service is not ready, so your fish was not released. Please tell the staff.',
     reflectTitle: 'Is there anything you would like to release into the river?',
     reflectSub: 'Not everything needs an answer today.\nWrite down what is on your heart,\nand let the river carry it gently away.',
     reflectPh: 'Write what is on your heart here…', skip: 'Skip this step',
@@ -102,7 +104,7 @@ const T = {
 };
 
 /* ========== STATE ========== */
-const fresh = () => ({ stage: 0, q: 0, answers: [null, null, null, null, null], fish: null, items: [], sel: null, uid: 0, released: false, notice: null });
+const fresh = () => ({ stage: 0, q: 0, answers: [null, null, null, null, null], fish: null, items: [], sel: null, uid: 0, released: false, notice: null, fishKey: null, unacked: false, saving: false });
 let S = Object.assign(fresh(), { lang: 'th' });
 let reflectText = ''; // private; memory only, never transmitted
 const $ = id => document.getElementById(id);
@@ -315,7 +317,13 @@ function updateCount() { $('reflectCount').textContent = `${$('reflect').value.l
 function renderRelease(keepPos) {
   $('relFish').innerHTML = `<div class="fishbox static">${fishHTML(false)}</div>`;
   $('relMsg').textContent = t('relMsg');
-  if (!keepPos) { $('relWrap').classList.remove('swim'); $('relFish').style.transform = ''; }
+  if (!keepPos) { $('relWrap').classList.remove('swim'); $('relFish').style.transform = ''; setRelStatus(null); }
+  else setRelStatus(relKey, relErr);
+}
+let relKey = null, relErr = false;
+function setRelStatus(key, isErr) { // status line under the drag hint (saving / error)
+  relKey = key; relErr = !!isErr;
+  const el = $('relStatus'); el.hidden = !key; el.textContent = key ? t(key) : ''; el.classList.toggle('err', !!isErr);
 }
 function initRelease() {
   const rf = $('relFish');
@@ -340,13 +348,49 @@ function overTarget(e) {
   const r = $('riverTarget').getBoundingClientRect();
   return e.clientX > r.left && e.clientX < r.right && e.clientY > r.top && e.clientY < r.bottom;
 }
-function releaseFish() {
-  if (S.released) return; // guard: one release per journey
-  S.released = true;
-  $('relBtn').disabled = true;
+async function releaseFish() {
+  if (S.released || S.saving) return; // guard: one save and one release per journey
+  S.saving = true; $('relBtn').disabled = true; setRelStatus('saving');
+  try { await saveFish(); }
+  catch (err) { // never show success if the fish was not saved
+    console.warn('Fish was not saved:', err && err.message);
+    S.saving = false; $('relBtn').disabled = false; setRelStatus(err && err.message === 'firebase-not-ready' ? 'fbNotReady' : 'saveFail', true);
+    return;
+  }
+  S.saving = false; S.released = true; setRelStatus(null);
   $('relWrap').classList.add('swim');
   sendEvent(buildEvent());
   setTimeout(() => go(7), reduced() ? 1100 : 3000);
+}
+
+/* ========== FIREBASE: send the released fish to the staff queue ========== */
+// Needs firebase-config.js (and the Firebase compat SDK tags in index.html). The private reflection text is never sent.
+let fbDb = null;
+function fbInit() {
+  if (fbDb) return fbDb;
+  if (typeof firebase === 'undefined' || typeof FIREBASE_READY === 'undefined' || !FIREBASE_READY) return null;
+  if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+  return (fbDb = firebase.database());
+}
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+}
+async function saveFish() {
+  const db = fbInit();
+  if (!db) throw new Error('firebase-not-ready'); // never pretend success when Firebase is unavailable
+  if (!S.fishKey) S.fishKey = db.ref('fish_queue').push().key; // Firebase Push ID: one per journey, reused by every retry
+  const e = buildEvent(), r4 = v => Math.round(v * 10000) / 10000;
+  const rec = { // no queue number and no reflection text: the staff dashboard derives the order from created_at
+    fish_id: e.fish_id, fish_type: e.fish_type, language: e.language,
+    accessories: S.items.slice(0, MAX_TOTAL_ACCESSORIES).map(i => { const a = accById(i.id); return { id: a.id, file: a.f, x: r4(i.x), y: r4(i.y), w: r4(i.w ?? a.w) }; }),
+    wish_power: e.wish_power, status: 'pending', created_at: firebase.database.ServerValue.TIMESTAMP
+  };
+  try { await withTimeout(db.ref('fish_queue/' + S.fishKey).set(rec), 15000); }
+  catch (err) {
+    if (err && err.message === 'timeout') S.unacked = true; // the SDK may still deliver the first write
+    else if (S.unacked && err && /permission_denied/i.test(String(err.code || err.message))) return; // retry hit "already exists": the earlier write landed
+    throw err;
+  }
 }
 
 /* ========== CLOSING / RESTART ========== */
@@ -357,7 +401,7 @@ function renderClosing() {
 function restart() {
   const lang = S.lang;
   S = Object.assign(fresh(), { lang });
-  reflectText = ''; $('reflect').value = ''; $('notice').textContent = '';
+  reflectText = ''; $('reflect').value = ''; $('notice').textContent = ''; setRelStatus(null);
   ['powerMini', 'powerFull'].forEach(id => ($(id).innerHTML = ''));
   $('relBtn').disabled = false; $('relWrap').classList.remove('swim'); $('relFish').style.transform = '';
   go(0);
