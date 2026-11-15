@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Staff · ปล่อยปลาปล่อยใจ</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=IBM+Plex+Sans+Thai:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<section id="login" class="login">
+  <form id="loginForm">
+    <h1>ปล่อยปลาปล่อยใจ</h1>
+    <p class="sub">Staff Login</p>
+    <label>อีเมล<input id="email" type="email" autocomplete="username" required></label>
+    <label>รหัสผ่าน<input id="password" type="password" autocomplete="current-password" required></label>
+    <p id="loginErr" class="err" role="alert" hidden></p>
+    <button class="btn primary" id="loginBtn" type="submit">เข้าสู่ระบบ</button>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header class="bar">
+    <div><h1>ปล่อยปลาปล่อยใจ · Staff</h1><p class="sub"><span id="clock"></span></p></div>
+    <div class="bar-r"><span id="conn" class="badge">กำลังเชื่อมต่อ…</span><button class="btn" id="signOut">ออกจากระบบ</button></div>
+  </header>
+  <div class="stats" aria-label="สถิติ">
+    <div><b id="stTotal">0</b><span>ทั้งหมด</span></div>
+    <div><b id="stPending">0</b><span>รอปล่อย</span></div>
+    <div><b id="stReleased">0</b><span>ปล่อยแล้ว</span></div>
+    <div><b id="stCancelled">0</b><span>ยกเลิก</span></div>
+  </div>
+  <nav class="tabs"><button class="tab on" data-tab="queue">คิวที่รอปล่อย</button><button class="tab" data-tab="archive">คลังย้อนหลัง</button></nav>
+  <p id="dbErr" class="err" role="alert" hidden></p>
+  <section id="viewQueue">
+    <p id="loading" class="empty">กำลังโหลดคิว…</p>
+    <div id="queue" class="grid"></div>
+    <p id="queueEmpty" class="empty" hidden>🌿 ยังไม่มีปลารอปล่อย — สายน้ำกำลังเงียบสงบ</p>
+  </section>
+  <section id="viewArchive" hidden>
+    <div class="filters">
+      <input id="search" type="search" placeholder="ค้นหาเลขคิว หรือชนิดปลา" aria-label="ค้นหา">
+      <button class="chip on" data-f="all">All</button><button class="chip" data-f="released">Released</button><button class="chip" data-f="cancelled">Cancelled</button>
+    </div>
+    <div id="archive" class="grid"></div>
+    <p id="archiveEmpty" class="empty" hidden>ไม่พบรายการ</p>
+  </section>
+</div>
+
+<dialog id="dlg"><form method="dialog"><p id="dlgMsg"></p><div class="row"><button class="btn" value="cancel">ยกเลิก</button><button class="btn primary" value="ok">ยืนยัน</button></div></form></dialog>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="../firebase-config.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
