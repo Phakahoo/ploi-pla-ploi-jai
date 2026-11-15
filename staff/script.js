@@ -11,55 +11,62 @@ const accList = rec => (Array.isArray(rec.accessories) ? rec.accessories : Objec
 
 let records = [], filter = 'all', busy = false, queueRef = null;
 
-/* ---------- Firebase / auth ---------- */
+
+/* ---------- Firebase ---------- */
 if (typeof FIREBASE_READY === 'undefined' || !FIREBASE_READY) {
-  showLoginErr('ยังไม่ได้ตั้งค่า Firebase ในไฟล์ firebase-config.js');
-  $('loginBtn').disabled = true;
+  $('dbErr').hidden = false;
+  $('dbErr').textContent = 'ยังไม่ได้ตั้งค่า Firebase ในไฟล์ firebase-config.js';
+  $('loading').hidden = true;
 } else {
-  firebase.initializeApp(FIREBASE_CONFIG);
-  firebase.database().ref('.info/connected').on('value', s => {
-    const b = $('conn'); b.className = 'badge ' + (s.val() ? 'ok' : 'bad'); b.textContent = s.val() ? 'เชื่อมต่อ Firebase แล้ว' : 'ขาดการเชื่อมต่อ';
-  });
-  firebase.auth().onAuthStateChanged(user => (user ? startApp() : showLogin()));
-}
-function showLoginErr(m) { const e = $('loginErr'); e.hidden = !m; e.textContent = m || ''; }
-function showLogin() {
-  if (queueRef) { queueRef.off(); queueRef = null; }
-  $('app').hidden = true; $('login').hidden = false;
-}
-
-$('loginForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  showLoginErr('');
-  $('loginBtn').disabled = true;
-
-  try {
-    await firebase.auth().signInWithEmailAndPassword(
-      $('email').value.trim(),
-      $('password').value
-    );
-    $('password').value = '';
-  } catch (err) {
-    console.error('Firebase Login Error:', err);
-    showLoginErr(err.code + ': ' + err.message);
+  if (!firebase.apps.length) {
+    firebase.initializeApp(FIREBASE_CONFIG);
   }
 
-  $('loginBtn').disabled = false;
-});
+  firebase.database().ref('.info/connected').on('value', s => {
+    const b = $('conn');
+    b.className = 'badge ' + (s.val() ? 'ok' : 'bad');
+    b.textContent = s.val() ? 'เชื่อมต่อ Firebase แล้ว' : 'ขาดการเชื่อมต่อ';
+  });
 
-$('signOut').addEventListener('click', () => firebase.auth().signOut());
+  startApp();
+}
 
 function startApp() {
-  $('login').hidden = true; $('app').hidden = false;
+  $('app').hidden = false;
+
   if (queueRef) queueRef.off();
+
   queueRef = firebase.database().ref('fish_queue');
+
   queueRef.orderByChild('created_at').on('value', snap => {
     records = [];
-    snap.forEach(c => { const v = c.val(); if (v && typeof v === 'object') records.push(Object.assign({ key: c.key }, v)); });
-    records.sort((a, b) => (a.created_at || 0) - (b.created_at || 0) || (a.key < b.key ? -1 : 1));
-    records.forEach((r, i) => (r.queue_number = i + 1)); // queue number = position in created_at order (never stored)
-    $('dbErr').hidden = true; $('loading').hidden = true; render();
-  }, err => { $('loading').hidden = true; $('dbErr').hidden = false; $('dbErr').textContent = 'อ่านข้อมูลไม่ได้: ' + err.message + ' (ตรวจสอบ Security Rules และอีเมลสตาฟ)'; });
+
+    snap.forEach(c => {
+      const v = c.val();
+      if (v && typeof v === 'object') {
+        records.push(Object.assign({ key: c.key }, v));
+      }
+    });
+
+    records.sort((a, b) =>
+      (a.created_at || 0) - (b.created_at || 0) ||
+      (a.key < b.key ? -1 : 1)
+    );
+
+    records.forEach((r, i) => {
+      r.queue_number = i + 1;
+    });
+
+    $('dbErr').hidden = true;
+    $('loading').hidden = true;
+    render();
+
+  }, err => {
+    $('loading').hidden = true;
+    $('dbErr').hidden = false;
+    $('dbErr').textContent =
+      'อ่านข้อมูลไม่ได้: ' + err.message + ' (ตรวจสอบ Security Rules)';
+  });
 }
 
 /* ---------- Rendering ---------- */
