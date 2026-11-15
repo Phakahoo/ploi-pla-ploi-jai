@@ -30,7 +30,10 @@ function showLogin() {
 $('loginForm').addEventListener('submit', async e => {
   e.preventDefault(); showLoginErr(''); $('loginBtn').disabled = true;
   try { await firebase.auth().signInWithEmailAndPassword($('email').value.trim(), $('password').value); $('password').value = ''; }
-  catch (err) { showLoginErr('เข้าสู่ระบบไม่สำเร็จ ตรวจสอบอีเมลและรหัสผ่าน'); }
+  catch (err) {
+  console.error('Firebase Login Error:', err);
+  showLoginErr(err.code + ': ' + err.message);
+} }
   $('loginBtn').disabled = false;
 });
 $('signOut').addEventListener('click', () => firebase.auth().signOut());
