@@ -27,15 +27,26 @@ function showLogin() {
   if (queueRef) { queueRef.off(); queueRef = null; }
   $('app').hidden = true; $('login').hidden = false;
 }
+
 $('loginForm').addEventListener('submit', async e => {
-  e.preventDefault(); showLoginErr(''); $('loginBtn').disabled = true;
-  try { await firebase.auth().signInWithEmailAndPassword($('email').value.trim(), $('password').value); $('password').value = ''; }
-  catch (err) {
-  console.error('Firebase Login Error:', err);
-  showLoginErr(err.code + ': ' + err.message);
-} }
+  e.preventDefault();
+  showLoginErr('');
+  $('loginBtn').disabled = true;
+
+  try {
+    await firebase.auth().signInWithEmailAndPassword(
+      $('email').value.trim(),
+      $('password').value
+    );
+    $('password').value = '';
+  } catch (err) {
+    console.error('Firebase Login Error:', err);
+    showLoginErr(err.code + ': ' + err.message);
+  }
+
   $('loginBtn').disabled = false;
 });
+
 $('signOut').addEventListener('click', () => firebase.auth().signOut());
 
 function startApp() {
