@@ -46,6 +46,7 @@ const ACC = [
   { id: 'flower', f: 'ดอกไม้.png', n: ['ดอกไม้', 'Flower'], x: .34, y: .3, w: .12, b: { love: 6, health: 6 } }
 ];
 const MAX_COPIES = 3;
+const MAX_TOTAL_ACCESSORIES = 2; // hard cap on accessories per fish, across every way of adding one
 
 const T = {
   th: {
@@ -62,6 +63,7 @@ const T = {
     m_study: 'พลังการเรียนและการงานของคุณเพิ่มขึ้นอีกนิด ✨', m_health: 'พลังแห่งการดูแลตัวเองเพิ่มขึ้นอีกนิด ✨',
     m_success: 'ความกล้าที่จะก้าวข้ามอุปสรรคเพิ่มขึ้นอีกนิด ✨', m_finance: 'ความมั่งคั่งที่คุณปรารถนากำลังได้รับการเติมเต็มอีกนิด ✨',
     m_love: 'ความอบอุ่นและความสุขเพิ่มขึ้นอีกนิด ✨', m_all: 'ประกายเล็ก ๆ ช่วยเติมพลังให้ทุกด้าน ✨',
+    limitMsg: 'เลือกของตกแต่งได้สูงสุด 2 ชิ้นแล้ว ✨',
     reflectTitle: 'มีอะไรที่คุณอยากปล่อยไปกับสายน้ำไหม?',
     reflectSub: 'บางเรื่องไม่จำเป็นต้องหาคำตอบในวันนี้\nลองเขียนสิ่งที่อยู่ในใจ แล้วปล่อยให้มันค่อย ๆ ไหลไป',
     reflectPh: 'เขียนสิ่งที่อยู่ในใจตรงนี้…', skip: 'ข้ามขั้นตอนนี้',
@@ -86,6 +88,7 @@ const T = {
     m_study: 'Your studies & career wish grows a little stronger ✨', m_health: 'Your wellbeing wish grows a little stronger ✨',
     m_success: 'Your courage to overcome obstacles grows a little ✨', m_finance: 'The abundance you wish for is being filled a little more ✨',
     m_love: 'Warmth and happiness grow a little ✨', m_all: 'A little sparkle lifts every wish ✨',
+    limitMsg: 'You can choose up to 2 accessories only ✨',
     reflectTitle: 'Is there anything you would like to release into the river?',
     reflectSub: 'Not everything needs an answer today.\nWrite down what is on your heart,\nand let the river carry it gently away.',
     reflectPh: 'Write what is on your heart here…', skip: 'Skip this step',
@@ -194,6 +197,10 @@ function updateSel() {
   stageEl().querySelectorAll('.acc').forEach(e => e.classList.toggle('sel', Number(e.dataset.uid) === S.sel));
 }
 function addItem(id, pos) {
+  if (S.items.length >= MAX_TOTAL_ACCESSORIES) { // limit reached: change nothing, just tell the person
+    S.notice = 'limitMsg'; $('notice').textContent = t(S.notice);
+    return null;
+  }
   if (S.items.filter(i => i.id === id).length >= MAX_COPIES) return null;
   const a = accById(id), isNew = !S.items.some(i => i.id === id);
   const it = { uid: ++S.uid, id, x: pos ? clamp(pos.x, 0, 1) : a.x, y: pos ? clamp(pos.y, 0, 1) : a.y, w: a.w };
@@ -205,6 +212,7 @@ function addItem(id, pos) {
 function removeItem(uid) {
   S.items = S.items.filter(i => i.uid !== uid);
   if (S.sel === uid) S.sel = null;
+  if (S.notice === 'limitMsg') { S.notice = null; $('notice').textContent = ''; } // a slot is free again
   renderStage(); renderPower($('powerMini'));
 }
 function toNorm(e) {
@@ -403,7 +411,8 @@ document.addEventListener('click', e => {
   if (b && ACTIONS[b.dataset.act]) ACTIONS[b.dataset.act](b);
 });
 document.addEventListener('pointermove', e => {
-  if (lp && !lp.made && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) {
+  if (lp && !lp.made && !lp.tried && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) {
+    lp.tried = true;
     const n = toNorm(e); lp.made = addItem(lp.id, n);
     if (lp.made) drag = { it: lp.made, dx: 0, dy: 0 };
   }
@@ -416,7 +425,7 @@ document.addEventListener('pointermove', e => {
 });
 function endDrag(e) {
   if (lp) {
-    if (!lp.made) addItem(lp.id); // plain tap/click adds at default position
+    if (!lp.made && !lp.tried) addItem(lp.id); // plain tap/click adds at default position
     else if (e.type === 'pointerup' && !toNorm(e).inside) removeItem(lp.made.uid); // dropped outside the fish stage
   }
   lp = null; drag = null; resize = null;
